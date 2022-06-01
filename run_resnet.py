@@ -22,7 +22,6 @@ import pickle
 import os
 
 import torch
-from datasets import load_dataset
 from torch.utils.data import DataLoader
 from torchvision.transforms import (
     CenterCrop,
@@ -39,6 +38,7 @@ import transformers
 from transformers import (
     AutoConfig,
     AutoFeatureExtractor,
+    ConvNextFeatureExtractor,
     AutoModelForImageClassification,
     SchedulerType,
     get_scheduler,
@@ -107,43 +107,20 @@ def main():
         os.makedirs(args.output_dir, exist_ok=True)
 
     # Get the dataset
-    if not os.path.exists('dataset_images/dataset.pickle'):
-        data_files = {}
-        if args.train_dir is not None:
-            data_files["train"] = os.path.join(args.train_dir, "**")
-        if args.dev_dir is not None:
-            data_files["dev"] = os.path.join(args.dev_dir, "**")
-        if args.test_dir is not None:
-            data_files["test"] = os.path.join(args.test_dir, "**")
-        dataset = load_dataset(
-            "imagefolder",
-            data_files=data_files,
-            cache_dir=args.cache_dir,
-            task="image-classification",
-        )
-        with open('dataset_images/dataset.pickle', 'wb') as f:
-            pickle.dump(dataset, f, protocol=4)
-    else:
-        with open('dataset_images/dataset.pickle', 'rb') as f:
-            dataset = pickle.load(f)
+    with open('dataset.pickle', 'rb') as f:
+        dataset = pickle.load(f)
     print(dataset)
 
     n_train = dataset["train"].num_rows
     n_dev = dataset["dev"].num_rows
     n_test = dataset["test"].num_rows
     print(f'training samples: {n_train}\nvalidation samples: {n_dev}\ntest samples: {n_test}')
-
-    # Prepare label mappings.
-    labels = dataset["train"].features["labels"].names
-    label2id = {label: str(i) for i, label in enumerate(labels)}
-    id2label = {str(i): label for i, label in enumerate(labels)}
+    print(dataset["train"].features)
 
     # Load pretrained model and feature extractor
     config = AutoConfig.from_pretrained(
         args.model_name_or_path,
-        num_labels=len(labels),
-        i2label=id2label,
-        label2id=label2id,
+        num_labels=25,
         finetuning_task="image-classification",
     )
     feature_extractor = AutoFeatureExtractor.from_pretrained(args.model_name_or_path)
@@ -154,7 +131,7 @@ def main():
         ignore_mismatched_sizes=True,
     ).to(device)
     print('model loaded')
-    # print(model)
+    print(model)
 
     # Define torchvision transforms to be applied to each image.
     normalize = Normalize(mean=feature_extractor.image_mean, std=feature_extractor.image_std)

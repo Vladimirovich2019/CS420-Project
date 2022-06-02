@@ -1,0 +1,12 @@
+CairoSVG
+matplotlib
+numpy
+opencv_python
+PyYAML
+scikit_learn
+svgwrite
+torch
+torchsketch
+torchvision
+tqdm
+transformers

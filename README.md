@@ -9,6 +9,13 @@ PNG images: https://pan.baidu.com/s/1n1AppgrAzPqjfKxjdHviaw, password: 7wim
 Pickled dataset: https://pan.baidu.com/s/1KI5p_5gCJdKO3Ynav0yI-w, password: q5ho
 
 ## Environment
+
+Install full dependencies for the project:
+
+```bash
+pip install -r requirements.txt
+```
+
 Install the transformers package:
 ```
 pip install -r requirements_transformers.txt

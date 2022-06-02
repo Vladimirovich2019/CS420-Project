@@ -6,7 +6,7 @@ PyYAML
 scikit_learn
 svgwrite
 torch
-torchsketch
+torchmetrics
 torchvision
 tqdm
 transformers

@@ -2,11 +2,11 @@
 Project repo for SJTU CS420 final project.
 
 ## Dataset
-Stroke sequence: https://jbox.sjtu.edu.cn/l/G1XSvf, password: bjaf
+Stroke sequence (source): https://jbox.sjtu.edu.cn/l/G1XSvf, password: bjaf
 
-PNG images: https://pan.baidu.com/s/1n1AppgrAzPqjfKxjdHviaw, password: 7wim
+PNG images: https://jbox.sjtu.edu.cn/l/O1qaEt
 
-Pickled dataset: https://pan.baidu.com/s/1KI5p_5gCJdKO3Ynav0yI-w, password: q5ho
+Pickled dataset (image + stroke + label): https://jbox.sjtu.edu.cn/l/h1PZLW
 
 ## Environment
 
@@ -30,6 +30,9 @@ pip install -r requirements_image_classification.txt
 ```
 
 ## Train
+### CNN
+Suggested models: microsoft/resnet-18, microsoft/resnet-34, microsoft/resnet-50, microsoft/resnet-101, microsoft/resnet-152
+
 ```
 python run_resnet.py \
 --train_dir dataset_images/train \

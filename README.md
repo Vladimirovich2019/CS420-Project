@@ -8,6 +8,8 @@ PNG images: https://pan.baidu.com/s/1n1AppgrAzPqjfKxjdHviaw, password: 7wim
 
 Pickled dataset: https://pan.baidu.com/s/1KI5p_5gCJdKO3Ynav0yI-w, password: q5ho
 
+Pickled dataset with stroke: https://jbox.sjtu.edu.cn/l/h1PZLW
+
 ## Environment
 Install the transformers package:
 ```

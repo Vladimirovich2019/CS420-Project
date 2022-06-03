@@ -46,3 +46,11 @@ python run_resnet.py \
 --output_dir results \
 --cache_dir cache
 ```
+
+### TorchSketch Baselines
+
+Modify data path, model and hyperparameters in `./configs/default.yaml`
+
+```bash
+python run_torchsketch.py
+```

@@ -80,9 +80,9 @@ if __name__ == "__main__":
     
     seed_everything(seed)
     
-    train_dataset = ImageDataset(os.path.join(train_cfg["data"], "test"))
+    train_dataset = ImageDataset(os.path.join(train_cfg["data"], "train"))
     test_dataset = ImageDataset(os.path.join(train_cfg["data"], "test"))
-    valid_dataset = ImageDataset(os.path.join(train_cfg["data"], "test"))
+    valid_dataset = ImageDataset(os.path.join(train_cfg["data"], "val"))
     
     class_num_train = train_dataset.num_classes
     class_num_test = test_dataset.num_classes

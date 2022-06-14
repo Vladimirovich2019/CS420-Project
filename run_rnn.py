@@ -173,7 +173,7 @@ def run():
 
     # test
     model.eval()
-    test_acc = torchmetrics.Accuracy(num_classes=25)
+    test_acc = torchmetrics.Accuracy(num_classes=25).to(device)
     with torch.no_grad():
         for idx, (x, y, x_lens) in enumerate(tqdm(test_dataloader)):
             x_packed = pack_padded_sequence(x, x_lens, enforce_sorted=False)

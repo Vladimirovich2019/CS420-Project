@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
     # test
     model.eval()
-    test_acc = torchmetrics.Accuracy(num_classes=class_num_train)
+    test_acc = torchmetrics.Accuracy(num_classes=class_num_train).to(device)
     with torch.no_grad():
         for idx, (x, y) in enumerate(tqdm(test_dataloader)):
             y_pred = model(x.to(torch.float32).to(device))

@@ -4,9 +4,7 @@ Project repo for SJTU CS420 final project.
 ## Dataset
 Stroke sequence (source): https://jbox.sjtu.edu.cn/l/G1XSvf, password: bjaf
 
-PNG images: https://jbox.sjtu.edu.cn/l/O1qaEt
-
-Pickled dataset (image + stroke + label): https://jbox.sjtu.edu.cn/l/h1PZLW
+Our dataset: https://jbox.sjtu.edu.cn/l/d1fFs6
 
 ## Environment
 

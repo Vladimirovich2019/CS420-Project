@@ -157,8 +157,8 @@ if __name__ == "__main__":
 
     os.makedirs(save_folder, exist_ok=True)
     np.save(os.path.join(save_folder, "train_loss.npy"), train_loss)
-    np.save(os.path.join(save_folder, "train_epoch_loss.npy"), train_epoch_loss)
-    np.save(os.path.join(save_folder, "valid_epoch_loss.npy"), valid_epoch_loss)
+    np.save(os.path.join(save_folder, "train_epochs_loss.npy"), train_epochs_loss)
+    np.save(os.path.join(save_folder, "valid_epochs_loss.npy"), valid_epochs_loss)
 
     if plot_loss_curve:
         plt.figure(figsize=(12, 4))

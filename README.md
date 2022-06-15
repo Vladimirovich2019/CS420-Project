@@ -27,6 +27,14 @@ Install dependencies for image classification:
 pip install -r requirements_image_classification.txt
 ```
 
+Dependency neural_renderer:
+
+```bash
+git clone git@github.com:adambielski/neural_renderer.git
+cd neural_renderer
+python3 setup.py install
+```
+
 ## Train
 ### CNN
 Suggested models: microsoft/resnet-18, microsoft/resnet-34, microsoft/resnet-50, microsoft/resnet-101, microsoft/resnet-152

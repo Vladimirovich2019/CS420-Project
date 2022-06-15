@@ -54,3 +54,23 @@ class StrokeDataset(data.Dataset):
     @property
     def num_classes(self):
         return len(self._classes)
+
+class StrokeDatasetOrig(data.Dataset):
+    def __init__(self, folder="./data/dataset", mode:str="train"):
+        self._classes = sorted(os.listdir(folder))
+        self._strokes = []
+        self._labels = []
+        self._len = 0
+        for class_id, class_name in enumerate(self._classes):
+            strokes = np.load(os.path.join(folder, class_name), allow_pickle=True, encoding="bytes")[mode].tolist()[:10]
+            self._strokes.extend(strokes)
+            self._labels.extend([class_id] * len(strokes))
+            self._len += len(strokes)
+        self._strokes = np.array(self._strokes, dtype=object)
+    
+    def __len__(self): return self._len
+    
+    def __getitem__(self, idx): return self._strokes[idx], self._labels[idx]
+    
+    @property
+    def num_classes(self): return len(self._classes)

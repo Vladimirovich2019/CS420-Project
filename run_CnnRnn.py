@@ -2,7 +2,6 @@ import argparse
 import os
 import yaml
 import torch
-import random
 import torchmetrics
 import numpy as np
 import torch.nn as nn
@@ -12,11 +11,9 @@ from time import time
 from tqdm import tqdm
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from datasets import ImageStrokeDataset
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
+from utils import device, collate_fn, seed_everything, EarlyStopping
 
 class Model(nn.Module):
     def __init__(self, cnn_model, h=256, num_layers=2, lstm_dropout=0.2):
@@ -33,10 +30,6 @@ class Model(nn.Module):
         self.num_layers = num_layers
         self.h = h
         self.lstm = nn.LSTM(input_size=3, hidden_size=h, num_layers=num_layers, dropout=lstm_dropout)
-        self.linear = nn.Sequential(
-            nn.Linear(h, h),
-            nn.ReLU(),
-        )
         self.classifier = nn.Sequential(
             nn.Linear(h + self.cnn_h, 25),
             nn.Sigmoid()
@@ -51,58 +44,6 @@ class Model(nn.Module):
         feature = torch.concat([cnn_out, lstm_out[-1]], dim=1)
 
         return self.classifier(feature)
-
-
-def seed_everything(seed):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
-
-class EarlyStopping():
-    def __init__(self, patience=7, verbose=False, delta=0):
-        self.patience = patience
-        self.verbose = verbose
-        self.counter = 0
-        self.best_score = None
-        self.early_stop = False
-        self.val_loss_min = np.Inf
-        self.delta = delta
-
-    def __call__(self, val_loss, model, path):
-        print("val_loss={}".format(val_loss))
-        score = -val_loss
-        if self.best_score is None:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model, path)
-        elif score < self.best_score + self.delta:
-            self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model, path)
-            self.counter = 0
-
-    def save_checkpoint(self, val_loss, model, path):
-        if self.verbose:
-            print(
-                f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        torch.save(model.state_dict(), path)
-        self.val_loss_min = val_loss
-
-
-def collate_fn(batch):
-    images = torch.from_numpy(np.array([ins[0] for ins in batch])).float().to(device)
-    strokes = [torch.from_numpy(ins[1]).to(device) for ins in batch]
-    y = torch.tensor([ins[2] for ins in batch], device=device)
-
-    strokes_lens = [len(stroke) for stroke in strokes]
-    strokes = pad_sequence(strokes)
-    return images, strokes.to(device).float(), y, strokes_lens
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

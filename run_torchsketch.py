@@ -94,7 +94,9 @@ if __name__ == "__main__":
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
 
-    model: nn.Module = getattr(torchmodels, train_cfg["cnn_model"])(num_classes=class_num_train)
+    model: nn.Module = getattr(torchmodels, train_cfg["cnn_model"])(pretrained=True)
+    if train_cfg["cnn_model"].startswith('resnet'): model.fc = nn.Linear(model.fc.in_features, 25)
+    if train_cfg["cnn_model"].startswith('mobilenet'): model.classifier[-1] = nn.Linear(model.classifier[-1].in_features, 25)
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()

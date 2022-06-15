@@ -13,6 +13,7 @@ class ImageDataset(data.Dataset):
         self._len = 0
         for class_id, class_name in enumerate(self._classes):
             imgs = os.listdir(os.path.join(folder, class_name))
+            imgs.remove('strokes.pickle')
             imgs.sort(key=lambda s: int(s[:-4]))
             for img in imgs:
                 if not img.endswith('png'): continue

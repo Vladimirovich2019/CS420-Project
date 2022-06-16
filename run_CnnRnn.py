@@ -15,6 +15,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from datasets import ImageStrokeDataset
 from utils import device, collate_fn, seed_everything, EarlyStopping
 
+
 class Model(nn.Module):
     def __init__(self, cnn_model, h=256, num_layers=2, lstm_dropout=0.2):
         super(Model, self).__init__()
@@ -45,6 +46,7 @@ class Model(nn.Module):
 
         return self.classifier(feature)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", "-c", type=str, default="./configs/default.yaml")
@@ -67,7 +69,7 @@ if __name__ == "__main__":
     plot_loss_curve = train_cfg["plot_loss_curve"]
     seed = train_cfg["seed"]
     #######################################################
-    train_cfg["cnn_model"] = 'resnet101'
+    train_cfg["cnn_model"] = 'resnet50'
     #######################################################
 
     seed_everything(seed)
@@ -110,7 +112,7 @@ if __name__ == "__main__":
             stroke_packed = pack_padded_sequence(x_stroke, stroke_len, enforce_sorted=False)
             y_pred = model(x, stroke_packed)
 
-            loss = criterion(y_pred, y.long().to(device))
+            loss = criterion(y_pred, y.long())
             train_epoch_loss.append(loss.item())
             train_loss.append(loss.item())
             if idx % (len(train_dataloader) // 2) == 0:
@@ -126,9 +128,10 @@ if __name__ == "__main__":
         # val
         model.eval()
         with torch.no_grad():
-            for idx, (x, y) in enumerate(tqdm(valid_dataloader)):
-                y_pred = model(x.to(torch.float32).to(device))
-                loss = criterion(y_pred, y.long().to(device))
+            for idx, (x, x_stroke, y, stroke_len) in enumerate(tqdm(valid_dataloader)):
+                stroke_packed = pack_padded_sequence(x_stroke, stroke_len, enforce_sorted=False)
+                y_pred = model(x, stroke_packed)
+                loss = criterion(y_pred, y.long())
                 valid_epoch_loss.append(loss.item())
                 valid_loss.append(loss.item())
             valid_epochs_loss.append(np.average(valid_epoch_loss))
@@ -169,9 +172,11 @@ if __name__ == "__main__":
     model.eval()
     test_acc = torchmetrics.Accuracy(num_classes=class_num_train).to(device)
     with torch.no_grad():
-        for idx, (x, y) in enumerate(tqdm(test_dataloader)):
-            y_pred = model(x.to(torch.float32).to(device))
-            test_acc(y_pred.argmax(1), y.long().to(device))
+        for idx, (x, x_stroke, y, stroke_len) in enumerate(tqdm(test_dataloader)):
+            stroke_packed = pack_padded_sequence(x_stroke, stroke_len, enforce_sorted=False)
+            y_pred = model(x, stroke_packed)
+            test_acc(y_pred.argmax(1), y.long())
         total_acc = test_acc.compute()
         print(f"test acc: {total_acc:.5f}")
+
 

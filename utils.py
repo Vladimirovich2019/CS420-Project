@@ -12,13 +12,21 @@ def seed_everything(seed):
     random.seed(seed)
     
 def collate_fn(batch):
-    images = torch.from_numpy(np.array([ins[0] for ins in batch])).float().to(device)
-    strokes = [torch.from_numpy(ins[1]).to(device) for ins in batch]
-    y = torch.tensor([ins[2] for ins in batch], device=device)
+    if len(batch[0]) == 3:
+        images = torch.from_numpy(np.array([ins[0] for ins in batch])).float().to(device)
+        strokes = [torch.from_numpy(ins[1]).to(device) for ins in batch]
+        y = torch.tensor([ins[2] for ins in batch], device=device)
+
+        strokes_lens = [len(stroke) for stroke in strokes]
+        strokes = pad_sequence(strokes)
+        return images, strokes.to(device).float(), y, strokes_lens
+    
+    strokes = [torch.from_numpy(ins[0]).to(device) for ins in batch]
+    y = torch.tensor([ins[1] for ins in batch], device=device)
 
     strokes_lens = [len(stroke) for stroke in strokes]
     strokes = pad_sequence(strokes)
-    return images, strokes.to(device).float(), y, strokes_lens
+    return strokes.to(device).float(), y, strokes_lens
     
 class EarlyStopping():
     def __init__(self, patience=7, verbose=False, delta=0):

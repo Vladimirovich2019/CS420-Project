@@ -115,6 +115,9 @@ class StrokeDatasetOrig(data.Dataset):
 def flip_img_h(transposed_img:np.array): return np.flip(transposed_img, axis=1).copy()
 def flip_img_w(transposed_img:np.array): return np.flip(transposed_img, axis=2).copy()
 def flip_img(transposed_img:np.array): return np.flip(transposed_img).copy()
+def noise_img(transposed_img:np.ndarray): 
+    return (transposed_img.astype(np.float32) + 
+            np.random.randn(transposed_img.shape[0], transposed_img.shape[1], transposed_img.shape[2]) * 0.4).astype(np.uint8)
 def flip_strokes_h(strokes:np.array): raise NotImplementedError
 
 
@@ -141,10 +144,14 @@ def test_preproc():
     transposed_img = np.transpose(cv2.imread(img_path), [2, 0, 1])
     img_flip_h = flip_img_h(transposed_img)
     img_flip_w = flip_img_w(transposed_img)
+    img_noised = noise_img(transposed_img)
+    print(img_noised)
     
     cv2.imshow("Original", transpose_back(transposed_img))
     cv2.imshow("Flipped H", transpose_back(img_flip_h))
     cv2.imshow("Flipped W", transpose_back(img_flip_w))
+    cv2.imshow("Noise", transpose_back(img_noised))
+    
     cv2.waitKey(-1)
 
 

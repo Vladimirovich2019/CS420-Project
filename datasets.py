@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 import torch.utils.data as data
 
+
 class ImageDataset(data.Dataset):
     def __init__(self, folder:str):
         self._classes = sorted(os.listdir(folder))
@@ -86,6 +87,7 @@ class ImageStrokeDataset(data.Dataset):
     def num_classes(self):
         return len(self._classes)
 
+
 # for toy code
 class StrokeDatasetOrig(data.Dataset):
     def __init__(self, folder="./data/dataset", mode:str="train"):
@@ -110,23 +112,29 @@ class StrokeDatasetOrig(data.Dataset):
 
 
 #### for robustness study
-def flip_img_h(transposed_img:np.array): return transposed_img[:, -1::-1, :]
-def flip_img_w(transposed_img:np.array): return transposed_img[:, :, -1::-1]
+def flip_img_h(transposed_img:np.array): return np.flip(transposed_img, axis=1).copy()
+def flip_img_w(transposed_img:np.array): return np.flip(transposed_img, axis=2).copy()
+def flip_img(transposed_img:np.array): return np.flip(transposed_img).copy()
 def flip_strokes_h(strokes:np.array): raise NotImplementedError
+
 
 class ImageDatasetAug(ImageDataset):
     def __init__(self, folder: str):
         super().__init__(folder)
-        self.processor = flip_img_h # change the preprocessor here
+        # change the preprocessor here
+        self.processor = flip_img_w
     
     def __getitem__(self, idx):
         return self.processor(np.transpose(cv2.imread(self._data_path[idx]), [2, 0, 1])), self._labels[idx]
-    
+
+
 class StrokeDatasetAug(StrokeDataset):
     def __init__(self, folder: str):
         super().__init__(folder)
 
+
 def transpose_back(transposed_img:np.array): return np.transpose(transposed_img, [1, 2, 0])
+
 
 def test_preproc():
     img_path = "./data/dataset_images/test/cow/3.png"
@@ -139,11 +147,13 @@ def test_preproc():
     cv2.imshow("Flipped W", transpose_back(img_flip_w))
     cv2.waitKey(-1)
 
+
 def test_stroke():
     dataset = StrokeDatasetOrig()
     stroke, label = dataset[0]
     print(stroke.shape)
     print(stroke)
+
 
 if __name__ == "__main__":
     test_preproc()

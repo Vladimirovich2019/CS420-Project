@@ -14,7 +14,10 @@ def seed_everything(seed):
 def collate_fn(batch):
     if len(batch[0]) == 3:
         images = torch.from_numpy(np.array([ins[0] for ins in batch])).float().to(device)
-        strokes = [torch.from_numpy(ins[1]).to(device) for ins in batch]
+        strokes = [torch.from_numpy(np.concatenate([
+            (ins[1][:, :2] - 0.6) / 20,
+            ins[1][:, 2:]
+        ], axis=1)).to(device) for ins in batch]
         y = torch.tensor([ins[2] for ins in batch], device=device)
 
         strokes_lens = [len(stroke) for stroke in strokes]
@@ -22,7 +25,7 @@ def collate_fn(batch):
         return images, strokes.to(device).float(), y, strokes_lens
     
     strokes = [torch.from_numpy(np.concatenate([
-        ins[0][:, :2] / 256,
+        (ins[0][:, :2] - 0.6) / 20,
         ins[0][:, 2:]
     ], axis=1)).to(device) for ins in batch]
 

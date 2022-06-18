@@ -16,33 +16,61 @@ from datasets import ImageStrokeDataset
 from utils import device, collate_fn, seed_everything, EarlyStopping
 
 
+class RNN(nn.Module):
+    def __init__(self, h=256, num_layers=2, lstm_dropout=0.5, linear_dropout=0.3):
+        super(RNN, self).__init__()
+        self.num_layers = num_layers
+        self.h = h
+        self.conv = nn.Sequential(
+            nn.Conv1d(in_channels=3, out_channels=3, kernel_size=5, padding=2),
+            nn.Conv1d(in_channels=3, out_channels=3, kernel_size=5, padding=2),
+            nn.Conv1d(in_channels=3, out_channels=3, kernel_size=5, padding=2)
+        )
+        self.lstm = nn.LSTM(input_size=3, hidden_size=h, num_layers=num_layers, dropout=lstm_dropout)
+        self.linear = nn.Sequential(
+            nn.Dropout(linear_dropout / 2),
+            nn.Linear(h, h),
+            nn.ReLU(),
+            nn.Dropout(linear_dropout),
+        )
+
+    def forward(self, x, x_lens):
+        # x: num_points x batch x 3
+        conv_out = self.conv(x.reshape((x.shape[1], 3, x.shape[0])))
+        # conv_out: batch x 3 x num_points
+        x_packed = pack_padded_sequence(conv_out.reshape((conv_out.shape[2], conv_out.shape[0], 3)),
+                                        x_lens, enforce_sorted=False)
+        lstm_out, (h_n, c_n) = self.lstm(x_packed)
+        out, _ = pad_packed_sequence(lstm_out)
+        # out: L x batch x h
+        # print(out.mean(dim=0).shape)
+
+        return self.linear(out.mean(dim=0))
+
+
 class Model(nn.Module):
-    def __init__(self, cnn_model, h=256, num_layers=2, lstm_dropout=0.2):
+    def __init__(self, cnn_model, h=256, num_layers=5, rnn_dropout=0.05):
         super(Model, self).__init__()
         self.cnn: nn.Module = getattr(torchmodels, cnn_model)(pretrained=True)
         if cnn_model.startswith('resnet'):
             self.cnn_h = self.cnn.fc.in_features
             self.cnn.fc = nn.Identity()
 
-        if cnn_model.startswith('mobilenet'):
+        if cnn_model.startswith('mobilenet') or cnn_model.startswith('efficient'):
             self.cnn_h = self.cnn.classifier[-1].in_features
             self.cnn.classifier[-1] = nn.Identity()
 
-        self.num_layers = num_layers
-        self.h = h
-        self.lstm = nn.LSTM(input_size=3, hidden_size=h, num_layers=num_layers, dropout=lstm_dropout)
+        self.rnn = RNN(h=h)
         self.classifier = nn.Sequential(
             nn.Linear(h + self.cnn_h, 25),
             nn.Sigmoid()
         )
 
-    def forward(self, image, stroke):
+    def forward(self, image, stroke, stroke_lens):
         cnn_out = self.cnn(image)
-        lstm_out, (h_n, c_n) = self.lstm(stroke)
-        lstm_out, _ = pad_packed_sequence(lstm_out)
-        # out: L x batch x h
-        # print(lstm_out[-1].shape)
-        feature = torch.concat([cnn_out, lstm_out[-1]], dim=1)
+        rnn_out = self.rnn(stroke, stroke_lens)
+
+        feature = torch.concat([cnn_out, rnn_out], dim=1)
 
         return self.classifier(feature)
 
@@ -68,8 +96,10 @@ if __name__ == "__main__":
     lr_adjust = {}  # epoch: lrate
     plot_loss_curve = train_cfg["plot_loss_curve"]
     seed = train_cfg["seed"]
+    lr_rnn = 3e-3
+    weight_decay_rnn = 1e-4
     #######################################################
-    train_cfg["cnn_model"] = 'resnet50'
+    train_cfg["cnn_model"] = 'efficientnet_b7'
     #######################################################
 
     seed_everything(seed)
@@ -90,7 +120,11 @@ if __name__ == "__main__":
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = Adam(model.parameters(), lr=lrate, weight_decay=weight_decay)
+    optimizer = Adam([
+        {'params': model.cnn.parameters(), 'lr': lrate, 'weight_decay': weight_decay},
+        {'params': model.classifier.parameters(), 'lr': lrate, 'weight_decay': weight_decay},
+        {'params': model.rnn.parameters(), 'lr': lr_rnn, 'weight_decay': weight_decay_rnn},
+    ])
 
     train_loss = []
     valid_loss = []
@@ -100,7 +134,7 @@ if __name__ == "__main__":
     early_stopping = EarlyStopping(patience=patience, verbose=True)
 
     training_time = str(int(time() * 1000))
-    save_folder = f"./model/{training_time}_{train_cfg['cnn_model']}/"
+    save_folder = f"./model/{training_time}_{train_cfg['cnn_model']}_lstm/"
 
     for epoch in range(num_epochs):
         train_epoch_loss = []
@@ -109,8 +143,7 @@ if __name__ == "__main__":
         # train
         model.train()
         for idx, (x, x_stroke, y, stroke_len) in enumerate(tqdm(train_dataloader)):
-            stroke_packed = pack_padded_sequence(x_stroke, stroke_len, enforce_sorted=False)
-            y_pred = model(x, stroke_packed)
+            y_pred = model(x, x_stroke, stroke_len)
 
             loss = criterion(y_pred, y.long())
             train_epoch_loss.append(loss.item())
@@ -129,8 +162,7 @@ if __name__ == "__main__":
         model.eval()
         with torch.no_grad():
             for idx, (x, x_stroke, y, stroke_len) in enumerate(tqdm(valid_dataloader)):
-                stroke_packed = pack_padded_sequence(x_stroke, stroke_len, enforce_sorted=False)
-                y_pred = model(x, stroke_packed)
+                y_pred = model(x, x_stroke, stroke_len)
                 loss = criterion(y_pred, y.long())
                 valid_epoch_loss.append(loss.item())
                 valid_loss.append(loss.item())
@@ -173,8 +205,7 @@ if __name__ == "__main__":
     test_acc = torchmetrics.Accuracy(num_classes=class_num_train).to(device)
     with torch.no_grad():
         for idx, (x, x_stroke, y, stroke_len) in enumerate(tqdm(test_dataloader)):
-            stroke_packed = pack_padded_sequence(x_stroke, stroke_len, enforce_sorted=False)
-            y_pred = model(x, stroke_packed)
+            y_pred = model(x, x_stroke, stroke_len)
             test_acc(y_pred.argmax(1), y.long())
         total_acc = test_acc.compute()
         print(f"test acc: {total_acc:.5f}")

@@ -53,8 +53,10 @@ if __name__ == "__main__":
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
 
     model: nn.Module = getattr(torchmodels, train_cfg["cnn_model"])(pretrained=True)
-    if train_cfg["cnn_model"].startswith('resnet'): model.fc = nn.Linear(model.fc.in_features, 25)
-    if train_cfg["cnn_model"].startswith('mobilenet'): model.classifier[-1] = nn.Linear(model.classifier[-1].in_features, 25)
+    if train_cfg["cnn_model"].startswith('resnet'):
+        model.fc = nn.Linear(model.fc.in_features, 25)
+    if train_cfg["cnn_model"].startswith('mobilenet') or train_cfg["cnn_model"].startswith('efficient'):
+        model.classifier[-1] = nn.Linear(model.classifier[-1].in_features, 25)
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
@@ -140,4 +142,3 @@ if __name__ == "__main__":
             test_acc(y_pred.argmax(1), y.long().to(device))
         total_acc = test_acc.compute()
         print(f"test acc: {total_acc:.5f}")
-

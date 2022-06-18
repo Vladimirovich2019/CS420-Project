@@ -17,6 +17,7 @@ from datasets import ImageStrokeDataset
 from utils import device, collate_fn, seed_everything, EarlyStopping
 from neuralline.rasterize import RasterIntensityFunc
 
+
 class SeqEncoder(nn.Module):
     
     def __init__(self,
@@ -24,7 +25,7 @@ class SeqEncoder(nn.Module):
                  hidden_size=512,
                  num_layers=2,
                  out_channels=1,
-                 batch_first=True,
+                 batch_first=False,
                  bidirect=True,
                  dropout=0,
                  requires_grad=True):
@@ -60,14 +61,15 @@ class SeqEncoder(nn.Module):
                 param.requires_grad = False
 
     def forward(self, points, lengths):
-        batch_size = points.shape[0]
-        num_points = points.shape[1]
+        batch_size = points.shape[1]
+        num_points = points.shape[0]
         point_dim = points.shape[2]
+
 
         if point_dim != self.input_size:
             points = points[:, :, :self.input_size]
 
-        points_packed = pack_padded_sequence(points, lengths, batch_first=self.batch_first)
+        points_packed = pack_padded_sequence(points, lengths, batch_first=self.batch_first, enforce_sorted=False)
         hiddens_packed, (last_hidden, _) = self.rnn(points_packed) 
 
         intensities_act = torch.sigmoid(self.attend_fc(hiddens_packed.data))
@@ -75,12 +77,14 @@ class SeqEncoder(nn.Module):
         intensities_packed = PackedSequence(intensities_act, hiddens_packed.batch_sizes)
         intensities, _ = pad_packed_sequence(intensities_packed, batch_first=self.batch_first, total_length=num_points)
 
+        # print(last_hidden.shape)
         last_hidden = last_hidden.view(batch_size, -1)
 
         if self.proj_last_hidden:
             last_hidden = F.relu(self.last_hidden_fc(last_hidden))
 
         return intensities, last_hidden
+
 
 class SketchR2CNN(nn.Module):
     
@@ -109,8 +113,9 @@ class SketchR2CNN(nn.Module):
         self.rnn = SeqEncoder(rnn_input_size, out_channels=intensity_channels, dropout=rnn_dropout)
         self.cnn: nn.Module = getattr(torchmodels, cnn_model)(pretrained=True)
 
-        num_fc_in_features = self.cnn.num_out_features
+        num_fc_in_features = self.cnn.fc.in_features
         self.fc = nn.Linear(num_fc_in_features, num_categories)
+        self.cnn.fc = nn.Identity()
 
         nets.extend([self.rnn, self.cnn, self.fc])
         names.extend(['rnn', 'conv', 'fc'])
@@ -128,6 +133,7 @@ class SketchR2CNN(nn.Module):
         logits = self.fc(cnnfeat)
 
         return logits, intensities, images
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -151,7 +157,7 @@ if __name__ == "__main__":
     plot_loss_curve = train_cfg["plot_loss_curve"]
     seed = train_cfg["seed"]
     #######################################################
-    train_cfg["cnn_model"] = 'resnet101'
+    # train_cfg["cnn_model"] = 'resnet50'
     #######################################################
 
     seed_everything(seed)
@@ -168,7 +174,7 @@ if __name__ == "__main__":
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
 
-    model = SketchR2CNN(train_cfg["cnn_model"])
+    model = SketchR2CNN(train_cfg["cnn_model"], device=device)
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
@@ -182,7 +188,7 @@ if __name__ == "__main__":
     early_stopping = EarlyStopping(patience=patience, verbose=True)
 
     training_time = str(int(time() * 1000))
-    save_folder = f"./model/{training_time}_{train_cfg['cnn_model']}/"
+    save_folder = f"./model/{training_time}_{train_cfg['cnn_model']}_r2cnn/"
 
     for epoch in range(num_epochs):
         train_epoch_loss = []
@@ -191,10 +197,10 @@ if __name__ == "__main__":
         # train
         model.train()
         for idx, (x, x_stroke, y, stroke_len) in enumerate(tqdm(train_dataloader)):
-            stroke_packed = pack_padded_sequence(x_stroke, stroke_len, enforce_sorted=False)
-            y_pred, _attention, _image = model(x, stroke_packed)
+            # stroke_packed = pack_padded_sequence(x_stroke, stroke_len, enforce_sorted=False)
+            y_pred, _attention, _image = model(x, x_stroke, stroke_len)
 
-            loss = criterion(y_pred, y.long().to(device))
+            loss = criterion(y_pred, y.long())
             train_epoch_loss.append(loss.item())
             train_loss.append(loss.item())
             if idx % (len(train_dataloader) // 2) == 0:
@@ -210,9 +216,9 @@ if __name__ == "__main__":
         # val
         model.eval()
         with torch.no_grad():
-            for idx, (x, y) in enumerate(tqdm(valid_dataloader)):
-                y_pred, _attention, _image = model(x.to(torch.float32).to(device))
-                loss = criterion(y_pred, y.long().to(device))
+            for idx, (x, x_stroke, y, stroke_len) in enumerate(tqdm(valid_dataloader)):
+                y_pred, _attention, _image = model(x, x_stroke, stroke_len)
+                loss = criterion(y_pred, y.long())
                 valid_epoch_loss.append(loss.item())
                 valid_loss.append(loss.item())
             valid_epochs_loss.append(np.average(valid_epoch_loss))
@@ -253,8 +259,8 @@ if __name__ == "__main__":
     model.eval()
     test_acc = torchmetrics.Accuracy(num_classes=class_num_train).to(device)
     with torch.no_grad():
-        for idx, (x, y) in enumerate(tqdm(test_dataloader)):
-            y_pred, _attention, _image = model(x.to(torch.float32).to(device))
+        for idx, (x, x_stroke, y, stroke_len) in enumerate(tqdm(test_dataloader)):
+            y_pred, _attention, _image = model(x, x_stroke, stroke_len)
             test_acc(y_pred.argmax(1), y.long().to(device))
         total_acc = test_acc.compute()
         print(f"test acc: {total_acc:.5f}")

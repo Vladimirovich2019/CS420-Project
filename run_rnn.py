@@ -17,6 +17,11 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
         self.num_layers = num_layers
         self.h = h
+        self.conv = nn.Sequential(
+            nn.Conv1d(in_channels=3, out_channels=3, kernel_size=5, padding=2),
+            nn.Conv1d(in_channels=3, out_channels=3, kernel_size=5, padding=2),
+            nn.Conv1d(in_channels=3, out_channels=3, kernel_size=5, padding=2)
+        )
         self.lstm = nn.LSTM(input_size=3, hidden_size=h, num_layers=num_layers, dropout=lstm_dropout)
         self.clf = nn.Sequential(
             nn.Linear(h, h),
@@ -26,21 +31,28 @@ class RNN(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, x):
-        lstm_out, (h_n, c_n) = self.lstm(x)
+    def forward(self, x, x_lens):
+        # x: num_points x batch x 3
+        conv_out = self.conv(x.reshape((x.shape[1], 3, x.shape[0])))
+        # conv_out: batch x 3 x num_points
+        x_packed = pack_padded_sequence(conv_out.reshape((conv_out.shape[2], conv_out.shape[0], 3)),
+                                        x_lens, enforce_sorted=False)
+        lstm_out, (h_n, c_n) = self.lstm(x_packed)
         out, _ = pad_packed_sequence(lstm_out)
         # out: L x batch x h
-        # print(out[-1].shape)
+        # print(out.mean(dim=0).shape)
 
-        return self.clf(out[-1])
+        return self.clf(out.mean(dim=0))
+
 
 batch_size = 32
 lr = 1e-4
-weight_decay = 1e-3
+weight_decay = 1e-4
 epochs = 10
 h = 256
 num_layers = 2
 patience = 5
+
 
 def run():
     seed_everything(1)
@@ -71,9 +83,8 @@ def run():
 
         model.train()
         for step, (x, y, x_lens) in enumerate(tqdm(train_dataloader)):
-            # print(f'step: {step}, x.shape: {x.shape}, y: {y}')
-            x_packed = pack_padded_sequence(x, x_lens, enforce_sorted=False)
-            out = model(x_packed)
+
+            out = model(x, x_lens)
 
             loss = criterion(out, y)
             train_epoch_loss.append(loss.item())
@@ -82,7 +93,9 @@ def run():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            # print(f'Epoch {epoch}, step {step} / {len(train_dataloader)}, loss: {np.mean(loss.item())}')
+            if step % (len(train_dataloader) // 2) == 0:
+                print("epoch={}/{}, {}/{}of train, loss={}".format(
+                    epoch, epochs, step, len(train_dataloader), loss.item()))
         train_epochs_loss.append(np.mean(train_epoch_loss))
 
         model.eval()

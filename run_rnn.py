@@ -46,7 +46,7 @@ class RNN(nn.Module):
 
 
 batch_size = 32
-lr = 1e-4
+lr = 3e-3
 weight_decay = 1e-4
 epochs = 10
 h = 256
@@ -101,8 +101,7 @@ def run():
         model.eval()
         with torch.no_grad():
             for step, (x, y, x_lens) in enumerate(tqdm(dev_dataloader)):
-                x_packed = pack_padded_sequence(x, x_lens, enforce_sorted=False)
-                out = model(x_packed)
+                out = model(x, x_lens)
 
                 loss = criterion(out, y)
                 valid_epoch_loss.append(loss.item())
@@ -138,8 +137,7 @@ def run():
     test_acc = torchmetrics.Accuracy(num_classes=25).to(device)
     with torch.no_grad():
         for idx, (x, y, x_lens) in enumerate(tqdm(test_dataloader)):
-            x_packed = pack_padded_sequence(x, x_lens, enforce_sorted=False)
-            out = model(x_packed)
+            out = model(x, x_lens)
             test_acc(out.argmax(1), y)
         total_acc = test_acc.compute()
         print(f"test acc: {total_acc:.5f}")

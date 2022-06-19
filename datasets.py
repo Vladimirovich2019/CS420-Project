@@ -30,6 +30,21 @@ class ImageDataset(data.Dataset):
     def num_classes(self): return len(self._classes)
 
 
+class FeatureDataset(data.Dataset):
+    def __init__(self, file: str):
+        with open(file, 'rb') as f:
+            feature = pickle.load(f)
+            self.x = feature[0]
+            self.y = feature[1]
+        self._len = self.x.shape[0]
+
+    def __len__(self):
+        return self._len
+
+    def __getitem__(self, idx):
+        return self.x[idx], self.y[idx]
+
+
 class StrokeDataset(data.Dataset):
     def __init__(self, folder: str):
         self._classes = sorted(os.listdir(folder))

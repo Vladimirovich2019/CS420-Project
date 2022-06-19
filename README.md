@@ -43,12 +43,12 @@ python run_rnn.py
 python run_CnnRnn.py
 ```
 
-For replaying our experiment, pre-training EfficientNet-B7 and LSTM is required. 
+To reproduce our experiment, pre-training EfficientNet-B7 and LSTM is required. 
 
-Forward passing the inputs through pre-trained networks and saving the results locally by
+Forward pass the inputs through pre-trained networks and save the results locally by
 
 ```bash
-#TODO: to be uploaded
+python extract_feature.py
 ```
 
 Train the fusion layer and test by
